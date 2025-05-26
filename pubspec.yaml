@@ -16,6 +16,8 @@ dependencies:
   provider: ^6.1.2
   flutter_unity_widget: ^2022.2.1
   cupertino_icons: ^1.0.8
+  chess_vectors_flutter: ^1.0.0
+  flutter_svg: ^2.0.0
 
 dev_dependencies:
   flutter_test:

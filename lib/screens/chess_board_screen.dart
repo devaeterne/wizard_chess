@@ -1,237 +1,344 @@
 import 'package:flutter/material.dart';
+import 'package:chess_vectors_flutter/chess_vectors_flutter.dart';
 import '../models/piece.dart';
 import '../utils/move_validator.dart';
 import '../widgets/chess_tile.dart';
 
 class ChessBoardScreen extends StatefulWidget {
+  const ChessBoardScreen({Key? key}) : super(key: key);
+
   @override
   State<ChessBoardScreen> createState() => _ChessBoardScreenState();
 }
 
 class _ChessBoardScreenState extends State<ChessBoardScreen> {
-  static const int boardSize = 8;
   late List<List<Piece?>> board;
-  int? selectedX;
-  int? selectedY;
   PieceColor currentTurn = PieceColor.white;
-
-  // Yenilen taşlar için listeler
-  List<Piece> whiteCaptured = [];
-  List<Piece> blackCaptured = [];
-
-  // Hareket logları
   List<String> moveLog = [];
+  List<Piece> capturedWhite = [];
+  List<Piece> capturedBlack = [];
 
   @override
   void initState() {
     super.initState();
-    _initializeBoard();
+    _initBoard();
   }
 
-  void _initializeBoard() {
-    board = List.generate(
-      boardSize,
-      (_) => List.generate(boardSize, (_) => null),
-    );
+  void _initBoard() {
+    board = List.generate(8, (_) => List.filled(8, null));
+
+    List<PieceType> backRow = [
+      PieceType.rook,
+      PieceType.knight,
+      PieceType.bishop,
+      PieceType.queen,
+      PieceType.king,
+      PieceType.bishop,
+      PieceType.knight,
+      PieceType.rook,
+    ];
 
     // Siyah taşlar
-    board[0] = [
-      Piece(type: PieceType.rook, color: PieceColor.black),
-      Piece(type: PieceType.knight, color: PieceColor.black),
-      Piece(type: PieceType.bishop, color: PieceColor.black),
-      Piece(type: PieceType.queen, color: PieceColor.black),
-      Piece(type: PieceType.king, color: PieceColor.black),
-      Piece(type: PieceType.bishop, color: PieceColor.black),
-      Piece(type: PieceType.knight, color: PieceColor.black),
-      Piece(type: PieceType.rook, color: PieceColor.black),
-    ];
-    for (int i = 0; i < boardSize; i++) {
-      board[1][i] = Piece(type: PieceType.pawn, color: PieceColor.black);
+    for (int x = 0; x < 8; x++) {
+      board[1][x] = Piece(type: PieceType.pawn, color: PieceColor.black);
+      board[0][x] = Piece(type: backRow[x], color: PieceColor.black);
     }
 
     // Beyaz taşlar
-    board[7] = [
-      Piece(type: PieceType.rook, color: PieceColor.white),
-      Piece(type: PieceType.knight, color: PieceColor.white),
-      Piece(type: PieceType.bishop, color: PieceColor.white),
-      Piece(type: PieceType.queen, color: PieceColor.white),
-      Piece(type: PieceType.king, color: PieceColor.white),
-      Piece(type: PieceType.bishop, color: PieceColor.white),
-      Piece(type: PieceType.knight, color: PieceColor.white),
-      Piece(type: PieceType.rook, color: PieceColor.white),
-    ];
-    for (int i = 0; i < boardSize; i++) {
-      board[6][i] = Piece(type: PieceType.pawn, color: PieceColor.white);
+    for (int x = 0; x < 8; x++) {
+      board[6][x] = Piece(type: PieceType.pawn, color: PieceColor.white);
+      board[7][x] = Piece(type: backRow[x], color: PieceColor.white);
     }
   }
 
-  void _onTileTap(int x, int y) {
-    setState(() {
-      final tappedPiece = board[y][x];
+  Widget _getPieceIcon(Piece? piece) {
+    if (piece == null) return const SizedBox.shrink();
 
+    final isWhite = piece.color == PieceColor.white;
+
+    Widget icon;
+
+    switch (piece.type) {
+      case PieceType.pawn:
+        icon = isWhite ? WhitePawn() : BlackPawn();
+        break;
+      case PieceType.rook:
+        icon = isWhite ? WhiteRook() : BlackRook();
+        break;
+      case PieceType.knight:
+        icon = isWhite ? WhiteKnight() : BlackKnight();
+        break;
+      case PieceType.bishop:
+        icon = isWhite ? WhiteBishop() : BlackBishop();
+        break;
+      case PieceType.queen:
+        icon = isWhite ? WhiteQueen() : BlackQueen();
+        break;
+      case PieceType.king:
+        icon = isWhite ? WhiteKing() : BlackKing();
+        break;
+    }
+
+    return SizedBox(width: 48, height: 48, child: icon);
+  }
+
+  int? selectedX;
+  int? selectedY;
+
+  void _onTileTap(int x, int y) {
+    final piece = board[y][x];
+    setState(() {
       if (selectedX == null || selectedY == null) {
-        if (tappedPiece != null && tappedPiece.color == currentTurn) {
+        if (piece != null && piece.color == currentTurn) {
           selectedX = x;
           selectedY = y;
         }
       } else {
-        final selectedPiece = board[selectedY!][selectedX!];
+        if (selectedX == x && selectedY == y) {
+          selectedX = null;
+          selectedY = null;
+          return;
+        }
 
-        if (selectedPiece != null &&
-            canMove(
-              piece: selectedPiece,
-              fromX: selectedX!,
-              fromY: selectedY!,
-              toX: x,
-              toY: y,
-              board: board,
-            )) {
-          // Taş yeme durumu kontrolü
-          if (board[y][x] != null) {
-            final capturedPiece = board[y][x]!;
+        final selectedPiece = board[selectedY!][selectedX!];
+        if (selectedPiece == null) {
+          selectedX = null;
+          selectedY = null;
+          return;
+        }
+
+        if (canMove(
+          piece: selectedPiece,
+          fromX: selectedX!,
+          fromY: selectedY!,
+          toX: x,
+          toY: y,
+          board: board,
+        )) {
+          final capturedPiece = board[y][x];
+          if (capturedPiece != null) {
             if (capturedPiece.color == PieceColor.white) {
-              whiteCaptured.add(capturedPiece);
+              capturedWhite.add(capturedPiece);
             } else {
-              blackCaptured.add(capturedPiece);
+              capturedBlack.add(capturedPiece);
             }
           }
 
-          // Hamleyi gerçekleştir
           board[y][x] = selectedPiece;
           board[selectedY!][selectedX!] = null;
 
-          // Log kaydı
-          String move =
-              '${selectedPiece.symbol} ${String.fromCharCode(97 + selectedX!)}${8 - selectedY!} → ${String.fromCharCode(97 + x)}${8 - y}';
-          moveLog.add(move);
+          moveLog.add(
+            "${_pieceName(selectedPiece.type)} ${_posToString(selectedX!, selectedY!)} -> ${_posToString(x, y)}",
+          );
 
-          // Sıra değiştir
           currentTurn = currentTurn == PieceColor.white
               ? PieceColor.black
               : PieceColor.white;
-        }
 
-        selectedX = null;
-        selectedY = null;
+          selectedX = null;
+          selectedY = null;
+        } else {
+          if (piece != null && piece.color == currentTurn) {
+            selectedX = x;
+            selectedY = y;
+          } else {
+            selectedX = null;
+            selectedY = null;
+          }
+        }
       }
     });
   }
 
-  Widget _buildCapturedPiecesRow(List<Piece> capturedPieces) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: capturedPieces
-            .map(
-              (p) => Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Text(p.symbol, style: TextStyle(fontSize: 24)),
-              ),
-            )
-            .toList(),
-      ),
-    );
+  String _pieceName(PieceType type) {
+    switch (type) {
+      case PieceType.pawn:
+        return "P";
+      case PieceType.rook:
+        return "R";
+      case PieceType.knight:
+        return "N";
+      case PieceType.bishop:
+        return "B";
+      case PieceType.queen:
+        return "Q";
+      case PieceType.king:
+        return "K";
+    }
+  }
+
+  String _posToString(int x, int y) {
+    const files = "abcdefgh";
+    return "${files[x]}${8 - y}";
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text('Wizard Chess')),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          // Tahta boyutu ekranın yüksekliğinin %90'ı veya genişliğinin %60'ı kadar olsun (örnek)
-          final boardSizePx =
-              constraints.maxHeight * 0.9 < constraints.maxWidth * 0.6
-              ? constraints.maxHeight * 0.9
-              : constraints.maxWidth * 0.6;
-
-          return Row(
-            children: [
-              // Tahta
-              Container(
-                width: boardSizePx,
-                height: boardSizePx,
-                child: GridView.builder(
-                  physics: NeverScrollableScrollPhysics(),
-                  itemCount: boardSize * boardSize,
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: boardSize,
+      appBar: AppBar(
+        title: const Text("Wizard Chess"),
+        backgroundColor: Colors.brown[700],
+      ),
+      backgroundColor: Colors.brown[300],
+      body: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            // Satranç tahtası
+            Expanded(
+              flex: 4,
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.brown.shade900, width: 4),
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  itemBuilder: (context, index) {
-                    final x = index % boardSize;
-                    final y = index ~/ boardSize;
-                    final isDarkSquare = (x + y) % 2 == 1;
+                  child: GridView.builder(
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 8,
+                        ),
+                    itemCount: 64,
+                    itemBuilder: (context, index) {
+                      final x = index % 8;
+                      final y = index ~/ 8;
+                      final isDark = (x + y) % 2 == 1;
+                      final isSelected = (selectedX == x && selectedY == y);
+                      final piece = board[y][x];
 
-                    final isSelected = (selectedX == x && selectedY == y);
-                    final piece = board[y][x];
-                    final icon = piece?.icon;
-
-                    return ChessTile(
-                      isDark: isDarkSquare,
-                      isSelected: isSelected,
-                      icon: icon,
-                      onTap: () => _onTileTap(x, y),
-                    );
-                  },
+                      return ChessTile(
+                        isDark: isDark,
+                        isSelected: isSelected,
+                        pieceWidget: _getPieceIcon(piece),
+                        onTap: () => _onTileTap(x, y),
+                      );
+                    },
+                  ),
                 ),
               ),
+            ),
 
-              // Spacer
-              SizedBox(width: 12),
+            const SizedBox(width: 12),
 
-              // Sağ panel: Yenilen taşlar ve loglar
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Captured Pieces:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+            // Sağdaki log ve yakalanan taşlar bölümü
+            Expanded(
+              flex: 3,
+              child: Column(
+                children: [
+                  // Hareket logu
+                  Expanded(
+                    flex: 3,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.brown[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.brown),
+                      ),
+                      child: ListView.builder(
+                        itemCount: moveLog.length,
+                        itemBuilder: (context, index) {
+                          return Text(
+                            moveLog[index],
+                            style: const TextStyle(fontSize: 14),
+                          );
+                        },
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'White Captured:',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    _buildCapturedPiecesRow(whiteCaptured),
-                    SizedBox(height: 12),
-                    Text(
-                      'Black Captured:',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    _buildCapturedPiecesRow(blackCaptured),
-                    SizedBox(height: 20),
-                    Text(
-                      'Move Log:',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Yenilen taşlar beyaz
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.brown[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.brown),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Captured White",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Expanded(
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: capturedWhite
+                                  .map(
+                                    (p) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 4.0,
+                                      ),
+                                      child: SizedBox(
+                                        width: 48,
+                                        height: 48,
+                                        child: _getPieceIcon(p),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        padding: EdgeInsets.all(8),
-                        child: ListView.builder(
-                          itemCount: moveLog.length,
-                          itemBuilder: (context, index) {
-                            return Text(moveLog[index]);
-                          },
-                        ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  // Yenilen taşlar siyah
+                  Expanded(
+                    flex: 1,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.brown[100],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.brown),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Captured Black",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          Expanded(
+                            child: ListView(
+                              scrollDirection: Axis.horizontal,
+                              children: capturedBlack
+                                  .map(
+                                    (p) => Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 2.0,
+                                      ),
+                                      child: SizedBox(
+                                        width: 48,
+                                        height: 48,
+                                        child: _getPieceIcon(p),
+                                      ),
+                                    ),
+                                  )
+                                  .toList(),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          );
-        },
+            ),
+          ],
+        ),
       ),
     );
   }
