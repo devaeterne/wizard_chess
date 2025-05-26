@@ -15,8 +15,12 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
   int? selectedY;
   PieceColor currentTurn = PieceColor.white;
 
-  final List<String> columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-  final List<String> rows = ['8', '7', '6', '5', '4', '3', '2', '1'];
+  // Yenilen taşlar için listeler
+  List<Piece> whiteCaptured = [];
+  List<Piece> blackCaptured = [];
+
+  // Hareket logları
+  List<String> moveLog = [];
 
   @override
   void initState() {
@@ -30,6 +34,7 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
       (_) => List.generate(boardSize, (_) => null),
     );
 
+    // Siyah taşlar
     board[0] = [
       Piece(type: PieceType.rook, color: PieceColor.black),
       Piece(type: PieceType.knight, color: PieceColor.black),
@@ -44,6 +49,7 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
       board[1][i] = Piece(type: PieceType.pawn, color: PieceColor.black);
     }
 
+    // Beyaz taşlar
     board[7] = [
       Piece(type: PieceType.rook, color: PieceColor.white),
       Piece(type: PieceType.knight, color: PieceColor.white),
@@ -80,104 +86,152 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
               toY: y,
               board: board,
             )) {
+          // Taş yeme durumu kontrolü
+          if (board[y][x] != null) {
+            final capturedPiece = board[y][x]!;
+            if (capturedPiece.color == PieceColor.white) {
+              whiteCaptured.add(capturedPiece);
+            } else {
+              blackCaptured.add(capturedPiece);
+            }
+          }
+
+          // Hamleyi gerçekleştir
           board[y][x] = selectedPiece;
           board[selectedY!][selectedX!] = null;
 
+          // Log kaydı
+          String move =
+              '${selectedPiece.symbol} ${String.fromCharCode(97 + selectedX!)}${8 - selectedY!} → ${String.fromCharCode(97 + x)}${8 - y}';
+          moveLog.add(move);
+
+          // Sıra değiştir
           currentTurn = currentTurn == PieceColor.white
               ? PieceColor.black
               : PieceColor.white;
         }
+
         selectedX = null;
         selectedY = null;
       }
     });
   }
 
-  Widget _buildCoordinateLabels() {
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 20),
+  Widget _buildCapturedPiecesRow(List<Piece> capturedPieces) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: columns
+        children: capturedPieces
             .map(
-              (col) => Text(col, style: TextStyle(fontWeight: FontWeight.bold)),
+              (p) => Padding(
+                padding: const EdgeInsets.all(4.0),
+                child: Text(p.symbol, style: TextStyle(fontSize: 24)),
+              ),
             )
             .toList(),
       ),
     );
   }
 
-  Widget _buildBoard() {
-    return AspectRatio(
-      aspectRatio: 1,
-      child: GridView.builder(
-        physics: NeverScrollableScrollPhysics(),
-        itemCount: boardSize * boardSize,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: boardSize,
-        ),
-        itemBuilder: (context, index) {
-          final x = index % boardSize;
-          final y = index ~/ boardSize;
-          final isDarkSquare = (x + y) % 2 == 1;
-
-          final isSelected = (selectedX == x && selectedY == y);
-          final piece = board[y][x];
-          final symbol = piece?.symbol;
-
-          return ChessTile(
-            isDark: isDarkSquare,
-            isSelected: isSelected,
-            symbol: symbol,
-            onTap: () => _onTileTap(x, y),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildRowLabels() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: rows
-          .map(
-            (row) => Text(row, style: TextStyle(fontWeight: FontWeight.bold)),
-          )
-          .toList(),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    double boardSizePixels = MediaQuery.of(context).size.width * 0.9;
-    if (boardSizePixels > 400) boardSizePixels = 400;
-
     return Scaffold(
       appBar: AppBar(title: Text('Wizard Chess')),
-      body: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildCoordinateLabels(),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 8.0),
-                  child: SizedBox(
-                    height: boardSizePixels,
-                    child: _buildRowLabels(),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Tahta boyutu ekranın yüksekliğinin %90'ı veya genişliğinin %60'ı kadar olsun (örnek)
+          final boardSizePx =
+              constraints.maxHeight * 0.9 < constraints.maxWidth * 0.6
+              ? constraints.maxHeight * 0.9
+              : constraints.maxWidth * 0.6;
+
+          return Row(
+            children: [
+              // Tahta
+              Container(
+                width: boardSizePx,
+                height: boardSizePx,
+                child: GridView.builder(
+                  physics: NeverScrollableScrollPhysics(),
+                  itemCount: boardSize * boardSize,
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: boardSize,
                   ),
+                  itemBuilder: (context, index) {
+                    final x = index % boardSize;
+                    final y = index ~/ boardSize;
+                    final isDarkSquare = (x + y) % 2 == 1;
+
+                    final isSelected = (selectedX == x && selectedY == y);
+                    final piece = board[y][x];
+                    final icon = piece?.icon;
+
+                    return ChessTile(
+                      isDark: isDarkSquare,
+                      isSelected: isSelected,
+                      icon: icon,
+                      onTap: () => _onTileTap(x, y),
+                    );
+                  },
                 ),
-                SizedBox(
-                  width: boardSizePixels,
-                  height: boardSizePixels,
-                  child: _buildBoard(),
+              ),
+
+              // Spacer
+              SizedBox(width: 12),
+
+              // Sağ panel: Yenilen taşlar ve loglar
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Captured Pieces:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'White Captured:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    _buildCapturedPiecesRow(whiteCaptured),
+                    SizedBox(height: 12),
+                    Text(
+                      'Black Captured:',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    _buildCapturedPiecesRow(blackCaptured),
+                    SizedBox(height: 20),
+                    Text(
+                      'Move Log:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        padding: EdgeInsets.all(8),
+                        child: ListView.builder(
+                          itemCount: moveLog.length,
+                          itemBuilder: (context, index) {
+                            return Text(moveLog[index]);
+                          },
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
