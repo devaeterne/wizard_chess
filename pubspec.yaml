@@ -1,0 +1,31 @@
+name: wizard_chess
+description: "A new Flutter project."
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^2.27.0
+  cloud_firestore: ^4.15.4
+  firebase_auth: ^4.17.4
+  provider: ^6.1.2
+  flutter_unity_widget: ^2022.2.1
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+flutter:
+  uses-material-design: true
+
+  # Eğer özel görseller veya 3D modeller kullanacaksan buraya ekleyebilirsin:
+  # assets:
+  #   - assets/images/
+  #   - assets/models/
