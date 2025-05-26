@@ -4,38 +4,32 @@ class ChessTile extends StatelessWidget {
   final bool isDark;
   final bool isSelected;
   final String? symbol;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
 
   const ChessTile({
-    super.key,
+    Key? key,
     required this.isDark,
-    this.isSelected = false,
+    required this.isSelected,
     this.symbol,
-    this.onTap,
-  });
+    required this.onTap,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    Color baseColor = isDark ? Colors.brown[700]! : Colors.brown[300]!;
+    Color selectedColor = Colors.orange.withOpacity(0.5);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.greenAccent
-              : (isDark ? Colors.brown[700] : Colors.brown[300]),
-          border: isSelected
-              ? Border.all(color: Colors.yellowAccent, width: 3)
-              : null,
+          color: isSelected ? selectedColor : baseColor,
+          border: Border.all(color: Colors.black54),
         ),
         child: Center(
           child: Text(
             symbol ?? '',
-            style: TextStyle(
-              fontSize: 32,
-              color: symbol != null && '♙♖♘♗♕♔'.contains(symbol!)
-                  ? Colors.white
-                  : Colors.black,
-            ),
+            style: TextStyle(fontSize: 32, color: Colors.black),
           ),
         ),
       ),

@@ -15,6 +15,9 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
   int? selectedY;
   PieceColor currentTurn = PieceColor.white;
 
+  final List<String> columns = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+  final List<String> rows = ['8', '7', '6', '5', '4', '3', '2', '1'];
+
   @override
   void initState() {
     super.initState();
@@ -27,7 +30,6 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
       (_) => List.generate(boardSize, (_) => null),
     );
 
-    // Siyah taşlar (0. ve 1. satırlar)
     board[0] = [
       Piece(type: PieceType.rook, color: PieceColor.black),
       Piece(type: PieceType.knight, color: PieceColor.black),
@@ -42,7 +44,6 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
       board[1][i] = Piece(type: PieceType.pawn, color: PieceColor.black);
     }
 
-    // Beyaz taşlar (6. ve 7. satırlar)
     board[7] = [
       Piece(type: PieceType.rook, color: PieceColor.white),
       Piece(type: PieceType.knight, color: PieceColor.white),
@@ -63,13 +64,11 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
       final tappedPiece = board[y][x];
 
       if (selectedX == null || selectedY == null) {
-        // Henüz taş seçilmedi, seç
         if (tappedPiece != null && tappedPiece.color == currentTurn) {
           selectedX = x;
           selectedY = y;
         }
       } else {
-        // Taş seçili, şimdi hareket kontrolü
         final selectedPiece = board[selectedY!][selectedX!];
 
         if (selectedPiece != null &&
@@ -81,52 +80,103 @@ class _ChessBoardScreenState extends State<ChessBoardScreen> {
               toY: y,
               board: board,
             )) {
-          // Hamle geçerli, taşı hareket ettir
           board[y][x] = selectedPiece;
           board[selectedY!][selectedX!] = null;
 
-          // Sıra değiştir
           currentTurn = currentTurn == PieceColor.white
               ? PieceColor.black
               : PieceColor.white;
         }
-
-        // Seçimi kaldır
         selectedX = null;
         selectedY = null;
       }
     });
   }
 
+  Widget _buildCoordinateLabels() {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: columns
+            .map(
+              (col) => Text(col, style: TextStyle(fontWeight: FontWeight.bold)),
+            )
+            .toList(),
+      ),
+    );
+  }
+
+  Widget _buildBoard() {
+    return AspectRatio(
+      aspectRatio: 1,
+      child: GridView.builder(
+        physics: NeverScrollableScrollPhysics(),
+        itemCount: boardSize * boardSize,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: boardSize,
+        ),
+        itemBuilder: (context, index) {
+          final x = index % boardSize;
+          final y = index ~/ boardSize;
+          final isDarkSquare = (x + y) % 2 == 1;
+
+          final isSelected = (selectedX == x && selectedY == y);
+          final piece = board[y][x];
+          final symbol = piece?.symbol;
+
+          return ChessTile(
+            isDark: isDarkSquare,
+            isSelected: isSelected,
+            symbol: symbol,
+            onTap: () => _onTileTap(x, y),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildRowLabels() {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: rows
+          .map(
+            (row) => Text(row, style: TextStyle(fontWeight: FontWeight.bold)),
+          )
+          .toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    double boardSizePixels = MediaQuery.of(context).size.width * 0.9;
+    if (boardSizePixels > 400) boardSizePixels = 400;
+
     return Scaffold(
       appBar: AppBar(title: Text('Wizard Chess')),
       body: Center(
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: GridView.builder(
-            itemCount: boardSize * boardSize,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: boardSize,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildCoordinateLabels(),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: SizedBox(
+                    height: boardSizePixels,
+                    child: _buildRowLabels(),
+                  ),
+                ),
+                SizedBox(
+                  width: boardSizePixels,
+                  height: boardSizePixels,
+                  child: _buildBoard(),
+                ),
+              ],
             ),
-            itemBuilder: (context, index) {
-              final x = index % boardSize;
-              final y = index ~/ boardSize;
-              final isDarkSquare = (x + y) % 2 == 1;
-
-              final isSelected = (selectedX == x && selectedY == y);
-              final piece = board[y][x];
-              final symbol = piece?.symbol;
-
-              return ChessTile(
-                isDark: isDarkSquare,
-                isSelected: isSelected,
-                symbol: symbol,
-                onTap: () => _onTileTap(x, y),
-              );
-            },
-          ),
+          ],
         ),
       ),
     );
